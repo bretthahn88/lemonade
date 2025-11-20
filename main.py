@@ -1,10 +1,12 @@
 import random
 import os
+import csv
+import json
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
-app = FastAPI(title="Lemonade Tycoon Single File", version="1.1.0")
+app = FastAPI(title="Lemonade Tycoon Single File", version="1.3.0")
 
 # ==========================================
 #            GAME CONFIGURATION
@@ -35,6 +37,8 @@ UPGRADES = {
     ]
 }
 
+CSV_FILE = "gamestate.csv"
+
 # ==========================================
 #                GAME STATE
 # ==========================================
@@ -60,12 +64,93 @@ class GameState:
             "total_sales": 0,
             "total_revenue": 0.0
         }
-        self.history = [] # List of dicts: {day, cash, revenue, profit, sales}
+        self.history = [] # List of dicts: {day, cash, revenue, net_profit, sales}
         self.weather = "sunny"
         self.next_weather = "cloudy"
+        
+        # Attempt to load previous state on init
+        self.load_from_csv()
 
     def reset(self):
-        self.__init__()
+        # Clear state to defaults
+        self.cash = 25.0
+        self.day = 1
+        self.reputation = 10
+        self.inventory = {"lemons": 5, "sugar": 5, "cups": 10, "ice": 0}
+        self.price = 1.00
+        self.upgrades = {"juicer": 0, "stand": 0, "fridge": 0}
+        self.stats = {"total_sales": 0, "total_revenue": 0.0}
+        self.history = []
+        self.weather = "sunny"
+        self.next_weather = "cloudy"
+        self.save_to_csv()
+
+    def save_to_csv(self):
+        """Saves the current state to a CSV file."""
+        data = {
+            "cash": self.cash,
+            "day": self.day,
+            "reputation": self.reputation,
+            "inv_lemons": self.inventory["lemons"],
+            "inv_sugar": self.inventory["sugar"],
+            "inv_cups": self.inventory["cups"],
+            "inv_ice": self.inventory["ice"],
+            "price": self.price,
+            "upg_juicer": self.upgrades["juicer"],
+            "upg_stand": self.upgrades["stand"],
+            "upg_fridge": self.upgrades["fridge"],
+            "stat_sales": self.stats["total_sales"],
+            "stat_rev": self.stats["total_revenue"],
+            "weather": self.weather,
+            "next_weather": self.next_weather,
+            # Serialize history list to JSON string to fit in CSV
+            "history": json.dumps(self.history)
+        }
+        
+        try:
+            with open(CSV_FILE, "w", newline="", encoding='utf-8') as f:
+                writer = csv.DictWriter(f, fieldnames=data.keys())
+                writer.writeheader()
+                writer.writerow(data)
+        except Exception as e:
+            print(f"Error saving CSV: {e}")
+
+    def load_from_csv(self):
+        """Loads state from CSV file if it exists."""
+        if not os.path.exists(CSV_FILE):
+            return
+
+        try:
+            with open(CSV_FILE, "r", encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    # Load basic fields
+                    self.cash = float(row.get("cash", 25.0))
+                    self.day = int(row.get("day", 1))
+                    self.reputation = float(row.get("reputation", 10))
+                    self.inventory["lemons"] = int(row.get("inv_lemons", 5))
+                    self.inventory["sugar"] = int(row.get("inv_sugar", 5))
+                    self.inventory["cups"] = int(row.get("inv_cups", 10))
+                    self.inventory["ice"] = int(row.get("inv_ice", 0))
+                    self.price = float(row.get("price", 1.0))
+                    self.upgrades["juicer"] = int(row.get("upg_juicer", 0))
+                    self.upgrades["stand"] = int(row.get("upg_stand", 0))
+                    self.upgrades["fridge"] = int(row.get("upg_fridge", 0))
+                    self.stats["total_sales"] = int(row.get("stat_sales", 0))
+                    self.stats["total_revenue"] = float(row.get("stat_rev", 0.0))
+                    self.weather = row.get("weather", "sunny")
+                    self.next_weather = row.get("next_weather", "cloudy")
+                    
+                    # Deserialize history safely
+                    hist_str = row.get("history")
+                    if hist_str:
+                        try:
+                            self.history = json.loads(hist_str)
+                        except:
+                            self.history = []
+        except Exception as e:
+            print(f"Error loading CSV: {e}")
+            # Fallback to defaults if load fails
 
 # Initialize Global State
 game = GameState()
@@ -134,16 +219,17 @@ html_content = """
         <div class="lg:col-span-2 space-y-6">
             
             <!-- Financial Charts -->
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5" x-show="state.day > 1">
+            <!-- We hide this on Day 1 because there is no data yet -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5" x-show="state.day > 1" x-transition>
                 <h2 class="font-bold text-slate-700 mb-4 flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" /></svg>
                     Performance History
                 </h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="h-48 relative">
+                    <div class="h-48 relative w-full">
                         <canvas id="cashChart"></canvas>
                     </div>
-                    <div class="h-48 relative">
+                    <div class="h-48 relative w-full">
                         <canvas id="salesChart"></canvas>
                     </div>
                 </div>
@@ -368,43 +454,64 @@ html_content = """
                 weatherIcons: { sunny: '☀️', cloudy: '☁️', rainy: '🌧️', hot: '🔥' },
 
                 async init() {
+                    // Initial load
                     await this.refreshState();
-                    this.initCharts();
+                    // Delay chart init to ensure DOM is ready
+                    this.$nextTick(() => {
+                        this.initCharts();
+                    });
                 },
 
                 initCharts() {
-                    const cashCtx = document.getElementById('cashChart').getContext('2d');
-                    const salesCtx = document.getElementById('salesChart').getContext('2d');
+                    // Check if canvas elements exist
+                    const cashEl = document.getElementById('cashChart');
+                    const salesEl = document.getElementById('salesChart');
+                    
+                    if (!cashEl || !salesEl) return;
 
-                    this.charts.cash = new Chart(cashCtx, {
+                    // Destroy existing charts if init is called multiple times
+                    if (this.charts.cash) this.charts.cash.destroy();
+                    if (this.charts.sales) this.charts.sales.destroy();
+
+                    this.charts.cash = new Chart(cashEl.getContext('2d'), {
                         type: 'line',
-                        data: { labels: [], datasets: [{ label: 'Total Cash', data: [], borderColor: '#16a34a', tension: 0.1 }] },
-                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Cash Growth ($)' } } }
+                        data: { labels: [], datasets: [{ label: 'Total Cash', data: [], borderColor: '#16a34a', tension: 0.1, fill: false }] },
+                        options: { 
+                            responsive: true, 
+                            maintainAspectRatio: false, 
+                            plugins: { legend: { display: false }, title: { display: true, text: 'Cash Growth ($)' } } 
+                        }
                     });
 
-                    this.charts.sales = new Chart(salesCtx, {
+                    this.charts.sales = new Chart(salesEl.getContext('2d'), {
                         type: 'bar',
                         data: { labels: [], datasets: [{ label: 'Daily Profit', data: [], backgroundColor: '#3b82f6' }] },
-                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Daily Net Profit ($)' } } }
+                        options: { 
+                            responsive: true, 
+                            maintainAspectRatio: false, 
+                            plugins: { legend: { display: false }, title: { display: true, text: 'Daily Net Profit ($)' } } 
+                        }
                     });
+                    
+                    // Initial update with loaded data
+                    this.updateCharts();
                 },
 
                 updateCharts() {
-                    if (!this.state.history) return;
+                    if (!this.state.history || !this.charts.cash || !this.charts.sales) return;
                     
                     const labels = this.state.history.map(h => 'Day ' + h.day);
                     const cashData = this.state.history.map(h => h.cash);
                     const profitData = this.state.history.map(h => h.net_profit);
 
-                    // Cash Chart
+                    // Update Cash Chart
                     this.charts.cash.data.labels = labels;
                     this.charts.cash.data.datasets[0].data = cashData;
                     this.charts.cash.update();
 
-                    // Sales Chart
+                    // Update Sales Chart
                     this.charts.sales.data.labels = labels;
                     this.charts.sales.data.datasets[0].data = profitData;
-                    // Color bars red if profit is negative
                     this.charts.sales.data.datasets[0].backgroundColor = profitData.map(v => v >= 0 ? '#3b82f6' : '#ef4444');
                     this.charts.sales.update();
                 },
@@ -412,7 +519,15 @@ html_content = """
                 async refreshState() {
                     const res = await fetch('/api/state');
                     this.state = await res.json();
-                    this.updateCharts();
+                    
+                    // Wait for Alpine to process x-show/DOM updates
+                    this.$nextTick(() => {
+                        if (this.state.day > 1) {
+                            // If charts container just became visible, we might need to re-init or update
+                            if (!this.charts.cash) this.initCharts();
+                            else this.updateCharts();
+                        }
+                    });
                 },
 
                 async updatePrice() {
@@ -463,7 +578,6 @@ html_content = """
                     for (const entry of data.log) {
                         await new Promise(r => setTimeout(r, 100)); // Delay for effect
                         this.simLog.push(entry);
-                        // Auto scroll
                         this.$nextTick(() => {
                             const el = document.getElementById('simLog');
                             if(el) el.scrollTop = el.scrollHeight;
@@ -478,7 +592,11 @@ html_content = """
 
                 async closeModal() {
                     this.showResult = false;
-                    this.updateCharts();
+                    
+                    // After closing modal, charts might become visible or need update
+                    this.$nextTick(() => {
+                        this.refreshState();
+                    });
                 },
 
                 async resetGame() {
@@ -521,6 +639,7 @@ async def get_state():
 async def set_price(data: PriceUpdate):
     if 0.01 <= data.price <= 10.00:
         game.price = data.price
+        game.save_to_csv()
         return {"success": True, "price": game.price}
     return {"success": False, "message": "Invalid price"}
 
@@ -533,6 +652,7 @@ async def buy_item(data: PurchaseRequest):
     if game.cash >= cost:
         game.cash -= cost
         game.inventory[data.item] += data.quantity
+        game.save_to_csv()
         return {"success": True, "state": await get_state()}
     return {"success": False, "message": "Not enough cash!"}
 
@@ -553,6 +673,7 @@ async def buy_upgrade(data: UpgradeRequest):
     if game.cash >= cost:
         game.cash -= cost
         game.upgrades[u_type] = next_level_idx
+        game.save_to_csv()
         return {"success": True, "state": await get_state()}
     return {"success": False, "message": "Not enough cash!"}
 
@@ -679,6 +800,8 @@ async def start_day():
     # Next Weather
     game.weather = game.next_weather
     game.next_weather = random.choice(["sunny", "cloudy", "rainy", "hot"])
+
+    game.save_to_csv()
 
     return {
         "log": log,
