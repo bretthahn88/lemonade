@@ -8,26 +8,14 @@ env/
 venv/
 ENV/
 .venv
-pip-log.txt
-pip-delete-this-directory.txt
-.pytest_cache/
-.coverage
-htmlcov/
 *.egg-info/
 dist/
 build/
 
-# Environment
-.env
-.env.local
-.env.*.local
+# Game state
+gamestate.csv
 
-# GCP secrets and credentials
-gcp-secrets.txt
-*.credentials
-.git-credentials
-
-# IDE
+# IDE & OS
 .vscode/
 .idea/
 *.swp
@@ -37,5 +25,5 @@ gcp-secrets.txt
 Thumbs.db
 
 # Local testing
-test_*.db
-*.sqlite3
+.env
+.env.local

@@ -1,3 +1,161 @@
+"""
+═══════════════════════════════════════════════════════════════════════════════
+    🍋 LEMONADE TYCOON - FastAPI → Google Cloud Run Auto-Deploy Demo
+═══════════════════════════════════════════════════════════════════════════════
+
+This single file demonstrates:
+✓ FastAPI web application with embedded HTML/CSS/JS
+✓ Automatic deployment to Google Cloud Run via GitHub Actions
+✓ Workload Identity Federation (no service account keys!)
+✓ Docker containerization
+✓ Auto-scaling serverless infrastructure
+
+Live Demo: https://lemonade-stand-api-eu4n5wumba-uc.a.run.app
+GitHub: https://github.com/williamedwardhahn/lemonade
+
+═══════════════════════════════════════════════════════════════════════════════
+    📋 QUICK START - Deploy Your Own
+═══════════════════════════════════════════════════════════════════════════════
+
+1️⃣  INSTALL GCLOUD CLI
+   curl https://sdk.cloud.google.com | bash
+   exec -l $SHELL
+   gcloud auth login
+
+2️⃣  SET VARIABLES (customize these!)
+   export PROJECT_ID="your-app-$(date +%s)"
+   export REGION="us-central1"
+   export SERVICE_NAME="your-service-name"
+   export GITHUB_USERNAME="your-github-username"
+   export GITHUB_REPO="your-repo-name"
+
+3️⃣  CREATE GCP PROJECT
+   gcloud projects create $PROJECT_ID --name="My FastAPI App"
+   gcloud config set project $PROJECT_ID
+   PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')
+
+   # Enable billing at:
+   # https://console.cloud.google.com/billing/linkedaccount?project=$PROJECT_ID
+
+4️⃣  ENABLE APIS
+   gcloud services enable \
+     run.googleapis.com \
+     artifactregistry.googleapis.com \
+     cloudbuild.googleapis.com \
+     iamcredentials.googleapis.com
+
+5️⃣  CREATE ARTIFACT REGISTRY
+   gcloud artifacts repositories create $SERVICE_NAME \
+     --repository-format=docker \
+     --location=$REGION \
+     --description="Docker repository"
+
+6️⃣  SETUP WORKLOAD IDENTITY (Secure GitHub → GCP auth)
+   # Create identity pool
+   gcloud iam workload-identity-pools create "github-pool" \
+     --location="global" \
+     --display-name="GitHub Actions Pool"
+
+   # Create OIDC provider
+   gcloud iam workload-identity-pools providers create-oidc "github-provider" \
+     --location="global" \
+     --workload-identity-pool="github-pool" \
+     --display-name="GitHub provider" \
+     --attribute-mapping="google.subject=assertion.sub,attribute.actor=assertion.actor,attribute.repository=assertion.repository,attribute.repository_owner=assertion.repository_owner" \
+     --attribute-condition="assertion.repository_owner=='$GITHUB_USERNAME'" \
+     --issuer-uri="https://token.actions.githubusercontent.com"
+
+7️⃣  CREATE SERVICE ACCOUNT
+   gcloud iam service-accounts create github-actions-sa \
+     --display-name="GitHub Actions SA"
+
+   # Grant permissions
+   gcloud projects add-iam-policy-binding $PROJECT_ID \
+     --member="serviceAccount:github-actions-sa@$PROJECT_ID.iam.gserviceaccount.com" \
+     --role="roles/run.admin" --condition=None
+
+   gcloud projects add-iam-policy-binding $PROJECT_ID \
+     --member="serviceAccount:github-actions-sa@$PROJECT_ID.iam.gserviceaccount.com" \
+     --role="roles/artifactregistry.writer" --condition=None
+
+   gcloud projects add-iam-policy-binding $PROJECT_ID \
+     --member="serviceAccount:github-actions-sa@$PROJECT_ID.iam.gserviceaccount.com" \
+     --role="roles/iam.serviceAccountUser" --condition=None
+
+   # Allow GitHub to impersonate service account
+   WORKLOAD_IDENTITY_POOL_ID=$(gcloud iam workload-identity-pools describe "github-pool" \
+     --location="global" --format="value(name)")
+
+   gcloud iam service-accounts add-iam-policy-binding \
+     "github-actions-sa@$PROJECT_ID.iam.gserviceaccount.com" \
+     --role="roles/iam.workloadIdentityUser" \
+     --member="principalSet://iam.googleapis.com/${WORKLOAD_IDENTITY_POOL_ID}/attribute.repository/${GITHUB_USERNAME}/${GITHUB_REPO}"
+
+8️⃣  ADD GITHUB SECRETS (go to Settings → Secrets → Actions)
+   # Print values to add:
+   echo "GCP_PROJECT_ID: $PROJECT_ID"
+   echo "WIF_PROVIDER: projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
+   echo "WIF_SERVICE_ACCOUNT: github-actions-sa@$PROJECT_ID.iam.gserviceaccount.com"
+
+9️⃣  PUSH TO GITHUB
+   git init
+   git add .
+   git commit -m "Initial commit"
+   git remote add origin https://github.com/$GITHUB_USERNAME/$GITHUB_REPO.git
+   git branch -M main
+   git push -u origin main
+
+🎉  DONE! GitHub Actions will auto-deploy on every push to main.
+
+═══════════════════════════════════════════════════════════════════════════════
+    📁 REQUIRED FILES
+═══════════════════════════════════════════════════════════════════════════════
+
+This repo needs:
+├── main.py (this file)
+├── requirements.txt
+├── Dockerfile
+├── .github/workflows/deploy.yml
+├── .gitignore
+└── .gcloudignore
+
+═══════════════════════════════════════════════════════════════════════════════
+    🧪 LOCAL TESTING
+═══════════════════════════════════════════════════════════════════════════════
+
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python main.py
+# Visit http://localhost:8000
+
+═══════════════════════════════════════════════════════════════════════════════
+    💰 COST
+═══════════════════════════════════════════════════════════════════════════════
+
+Cloud Run pricing:
+- 2M requests/month FREE
+- Auto-scales to 0 (no cost when idle)
+- Typical cost for hobby projects: $0-2/month
+- New GCP users get $300 in free credits
+
+═══════════════════════════════════════════════════════════════════════════════
+    🎮 ABOUT THIS DEMO
+═══════════════════════════════════════════════════════════════════════════════
+
+Lemonade Tycoon Deluxe v2.0
+- Full business simulator game
+- 8 achievements with cash rewards
+- Random events (celebrities, festivals, rivals)
+- Recipe experimentation system
+- Marketing upgrades
+- Analytics charts
+- CSV state persistence
+- All in one Python file!
+
+═══════════════════════════════════════════════════════════════════════════════
+"""
+
 import random
 import os
 import csv
