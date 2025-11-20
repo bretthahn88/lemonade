@@ -9,15 +9,10 @@ import os
 
 app = FastAPI(title="Lemonade Stand Simulator", version="1.0.0")
 
-# Serve static files (CSS, JS, images)
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# Templates
+# Templates directory
 templates = Jinja2Templates(directory="templates")
 
-# ===========================
-# Game State
-# ===========================
+# Game state
 class LemonadeStand:
     def __init__(self):
         self.cash = 10.0
@@ -31,9 +26,6 @@ class LemonadeStand:
 
 stand = LemonadeStand()
 
-# ===========================
-# Request Models
-# ===========================
 class PurchaseRequest(BaseModel):
     lemons: int = 0
     sugar: int = 0
@@ -42,9 +34,6 @@ class PurchaseRequest(BaseModel):
 class PriceUpdate(BaseModel):
     price: float
 
-# ===========================
-# Routes
-# ===========================
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     """Serve the dashboard HTML"""
@@ -68,12 +57,15 @@ async def get_status():
 async def purchase_supplies(purchase: PurchaseRequest):
     """Purchase supplies for the stand"""
     cost = (purchase.lemons * 0.50) + (purchase.sugar * 0.30) + (purchase.cups * 0.10)
+
     if cost > stand.cash:
         return {"success": False, "message": "Not enough cash!"}
+
     stand.cash -= cost
     stand.lemons += purchase.lemons
     stand.sugar += purchase.sugar
     stand.cups += purchase.cups
+
     return {
         "success": True,
         "message": f"Purchased supplies for ${cost:.2f}",
@@ -85,6 +77,7 @@ async def set_price(price_update: PriceUpdate):
     """Update lemonade price"""
     if price_update.price < 0.10 or price_update.price > 5.00:
         return {"success": False, "message": "Price must be between $0.10 and $5.00"}
+
     stand.price = price_update.price
     return {
         "success": True,
@@ -110,10 +103,11 @@ async def sell_for_day():
         "rainy": 0.3
     }[weather]
 
-    # Calculate potential customers
+    # Calculate potential customers based on price, reputation, and weather
     base_customers = random.randint(10, 30)
     price_factor = max(0.1, 2.0 - stand.price)  # Lower price = more customers
-    reputation_factor = stand.reputation / 50
+    reputation_factor = stand.reputation / 50  # Reputation affects sales
+
     potential_customers = int(base_customers * price_factor * reputation_factor * weather_multiplier)
 
     # Limited by supplies
@@ -125,18 +119,18 @@ async def sell_for_day():
     stand.sugar -= actual_sales
     stand.cups -= actual_sales
 
-    # Revenue
+    # Calculate revenue
     revenue = actual_sales * stand.price
     stand.cash += revenue
     stand.total_sales += actual_sales
 
-    # Reputation change
+    # Update reputation based on price/quality ratio
     if stand.price < 0.30:
-        reputation_change = -5
+        reputation_change = -5  # Too cheap = looks suspicious
     elif stand.price > 2.00:
-        reputation_change = -10
+        reputation_change = -10  # Too expensive = angry customers
     elif 0.40 <= stand.price <= 1.00:
-        reputation_change = random.randint(1, 5)
+        reputation_change = random.randint(1, 5)  # Good price = happy customers
     else:
         reputation_change = random.randint(-2, 2)
 
@@ -144,10 +138,10 @@ async def sell_for_day():
     stand.day += 1
 
     weather_emoji = {
-        "sunny": "Sunny",
-        "cloudy": "Cloudy",
-        "hot": "Fire",
-        "rainy": "Rain"
+        "sunny": "☀️",
+        "cloudy": "☁️",
+        "hot": "🔥",
+        "rainy": "🌧️"
     }[weather]
 
     return {
@@ -165,7 +159,15 @@ async def sell_for_day():
 @app.post("/api/reset")
 async def reset_game():
     """Reset the game to initial state"""
-    stand.__init__()  # Reset all values
+    stand.cash = 10.0
+    stand.lemons = 5
+    stand.sugar = 5
+    stand.cups = 10
+    stand.price = 0.50
+    stand.reputation = 50
+    stand.day = 1
+    stand.total_sales = 0
+
     return {
         "success": True,
         "message": "Game reset to day 1!",
@@ -177,5 +179,7 @@ async def health_check():
     """Health check endpoint for Cloud Run"""
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
-# THIS IS THE ONLY CORRECT WAY FOR CLOUD RUN
-uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8080))
+    uvicorn.run(app, host="0.0.0.0", port=port)
