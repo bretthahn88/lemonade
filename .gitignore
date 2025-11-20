@@ -22,6 +22,11 @@ build/
 .env.local
 .env.*.local
 
+# GCP secrets and credentials
+gcp-secrets.txt
+*.credentials
+.git-credentials
+
 # IDE
 .vscode/
 .idea/
