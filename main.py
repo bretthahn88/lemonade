@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
-app = FastAPI(title="Lemonade Tycoon Single File", version="1.0.0")
+app = FastAPI(title="Lemonade Tycoon Single File", version="1.1.0")
 
 # ==========================================
 #            GAME CONFIGURATION
@@ -60,6 +60,7 @@ class GameState:
             "total_sales": 0,
             "total_revenue": 0.0
         }
+        self.history = [] # List of dicts: {day, cash, revenue, profit, sales}
         self.weather = "sunny"
         self.next_weather = "cloudy"
 
@@ -96,6 +97,7 @@ html_content = """
     <title>FastAPI Lemonade Tycoon</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         [x-cloak] { display: none !important; }
     </style>
@@ -104,7 +106,7 @@ html_content = """
 
     <!-- TOP BAR -->
     <div class="bg-white shadow-sm sticky top-0 z-50 border-b border-slate-200">
-        <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
             <div class="flex items-center gap-2">
                 <span class="text-2xl">🍋</span>
                 <div>
@@ -126,11 +128,27 @@ html_content = """
     </div>
 
     <!-- MAIN CONTENT -->
-    <div class="max-w-4xl mx-auto p-4 grid grid-cols-1 md:grid-cols-3 gap-6" x-cloak>
+    <div class="max-w-6xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-3 gap-6" x-cloak>
         
         <!-- LEFT COLUMN: SUPPLIES & UPGRADES -->
-        <div class="md:col-span-2 space-y-6">
+        <div class="lg:col-span-2 space-y-6">
             
+            <!-- Financial Charts -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5" x-show="state.day > 1">
+                <h2 class="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" /></svg>
+                    Performance History
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="h-48 relative">
+                        <canvas id="cashChart"></canvas>
+                    </div>
+                    <div class="h-48 relative">
+                        <canvas id="salesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
             <!-- Weather Widget -->
             <div class="bg-blue-600 text-white rounded-xl p-6 flex justify-between items-center shadow-lg relative overflow-hidden">
                 <div class="relative z-10">
@@ -214,8 +232,38 @@ html_content = """
             </div>
         </div>
 
-        <!-- RIGHT COLUMN: STRATEGY -->
+        <!-- RIGHT COLUMN: STRATEGY & FINANCE -->
         <div class="space-y-6">
+            
+            <!-- Unit Economics Card -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <h2 class="font-bold text-slate-700 mb-4">Financial Breakdown</h2>
+                
+                <!-- Cost Calculation -->
+                <div class="space-y-2 text-sm mb-4">
+                    <div class="flex justify-between text-slate-500">
+                        <span>Lemon + Sugar + Cup</span>
+                        <span x-text="'$' + (state.costs.lemons + state.costs.sugar + state.costs.cups).toFixed(2)"></span>
+                    </div>
+                    <div class="flex justify-between text-slate-500">
+                        <span>Optional Ice Cost</span>
+                        <span x-text="'$' + state.costs.ice.toFixed(2)"></span>
+                    </div>
+                    <div class="border-t border-slate-100 my-2"></div>
+                    <div class="flex justify-between font-bold text-slate-700">
+                        <span>Total Cost Per Cup</span>
+                        <span x-text="'$' + (state.costs.lemons + state.costs.sugar + state.costs.cups + state.costs.ice).toFixed(2)"></span>
+                    </div>
+                    <div class="flex justify-between font-bold items-center">
+                        <span>Your Profit Margin</span>
+                        <span class="text-xs px-2 py-1 rounded bg-green-100 text-green-700"
+                              x-text="((state.price - (state.costs.lemons + state.costs.sugar + state.costs.cups + state.costs.ice)) / state.price * 100).toFixed(0) + '%'">
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Strategy -->
             <div class="bg-white rounded-xl shadow-lg border-2 border-yellow-400 p-5 sticky top-24">
                 <h2 class="font-bold text-lg mb-4">Daily Strategy</h2>
                 
@@ -228,6 +276,9 @@ html_content = """
                            x-model.number="state.price"
                            @change="updatePrice()"
                            class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-yellow-500">
+                    <div class="flex justify-between text-xs mt-1">
+                        <span class="text-green-600 font-bold" x-text="'Profit: +$' + (state.price - (state.costs.lemons + state.costs.sugar + state.costs.cups + state.costs.ice)).toFixed(2) + '/cup'"></span>
+                    </div>
                 </div>
 
                 <!-- Warnings -->
@@ -274,23 +325,28 @@ html_content = """
                     <div class="text-xl font-bold text-green-600" x-text="'$' + summary?.revenue.toFixed(2)"></div>
                 </div>
                 <div class="bg-blue-50 p-3 rounded-lg text-center">
-                    <div class="text-xs font-bold text-blue-700">Customers</div>
-                    <div class="text-xl font-bold text-blue-600" x-text="summary?.sold + ' / ' + (summary?.sold + summary?.missed)"></div>
+                    <div class="text-xs font-bold text-blue-700">Net Profit</div>
+                    <div class="text-xl font-bold" :class="summary?.net_profit >= 0 ? 'text-blue-600' : 'text-red-500'" x-text="(summary?.net_profit >= 0 ? '$' : '-$') + Math.abs(summary?.net_profit).toFixed(2)"></div>
                 </div>
             </div>
 
             <div class="space-y-2 text-sm text-slate-500 mb-6" x-show="summary">
                 <div class="flex justify-between">
-                    <span>Ice Melted:</span>
-                    <span class="font-bold text-blue-400" x-text="'-' + summary?.melted"></span>
+                    <span>Items Cost (COGS):</span>
+                    <span class="font-bold text-slate-700" x-text="'-$' + summary?.cogs.toFixed(2)"></span>
                 </div>
+                <div class="flex justify-between">
+                    <span>Ice Melt Loss:</span>
+                    <span class="font-bold text-red-400" x-text="'-$' + summary?.ice_loss.toFixed(2)"></span>
+                </div>
+                <div class="border-t border-slate-100 my-2"></div>
                 <div class="flex justify-between">
                     <span>Reputation:</span>
                     <span class="font-bold" :class="summary?.rep_change >= 0 ? 'text-green-500' : 'text-red-500'" x-text="(summary?.rep_change > 0 ? '+' : '') + summary?.rep_change"></span>
                 </div>
             </div>
 
-            <button @click="showResult = false" class="w-full py-3 bg-slate-800 text-white font-bold rounded-lg hover:bg-slate-700">
+            <button @click="closeModal()" class="w-full py-3 bg-slate-800 text-white font-bold rounded-lg hover:bg-slate-700">
                 Next Day
             </button>
         </div>
@@ -300,23 +356,63 @@ html_content = """
         function gameApp() {
             return {
                 state: {
-                    cash: 0, inventory: {}, upgrades: {}, upgrade_info: {juicer:[], stand:[], fridge:[]}, costs: {}, weather: 'sunny'
+                    cash: 0, inventory: {}, upgrades: {}, upgrade_info: {juicer:[], stand:[], fridge:[]}, costs: {lemons:0, sugar:0, cups:0, ice:0}, weather: 'sunny', history: []
                 },
                 isPlaying: false,
                 showResult: false,
                 simLog: [],
                 summary: null,
+                charts: { cash: null, sales: null },
                 
                 itemIcons: { lemons: '🍋', sugar: '🧂', cups: '🥤', ice: '🧊' },
                 weatherIcons: { sunny: '☀️', cloudy: '☁️', rainy: '🌧️', hot: '🔥' },
 
                 async init() {
                     await this.refreshState();
+                    this.initCharts();
+                },
+
+                initCharts() {
+                    const cashCtx = document.getElementById('cashChart').getContext('2d');
+                    const salesCtx = document.getElementById('salesChart').getContext('2d');
+
+                    this.charts.cash = new Chart(cashCtx, {
+                        type: 'line',
+                        data: { labels: [], datasets: [{ label: 'Total Cash', data: [], borderColor: '#16a34a', tension: 0.1 }] },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Cash Growth ($)' } } }
+                    });
+
+                    this.charts.sales = new Chart(salesCtx, {
+                        type: 'bar',
+                        data: { labels: [], datasets: [{ label: 'Daily Profit', data: [], backgroundColor: '#3b82f6' }] },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Daily Net Profit ($)' } } }
+                    });
+                },
+
+                updateCharts() {
+                    if (!this.state.history) return;
+                    
+                    const labels = this.state.history.map(h => 'Day ' + h.day);
+                    const cashData = this.state.history.map(h => h.cash);
+                    const profitData = this.state.history.map(h => h.net_profit);
+
+                    // Cash Chart
+                    this.charts.cash.data.labels = labels;
+                    this.charts.cash.data.datasets[0].data = cashData;
+                    this.charts.cash.update();
+
+                    // Sales Chart
+                    this.charts.sales.data.labels = labels;
+                    this.charts.sales.data.datasets[0].data = profitData;
+                    // Color bars red if profit is negative
+                    this.charts.sales.data.datasets[0].backgroundColor = profitData.map(v => v >= 0 ? '#3b82f6' : '#ef4444');
+                    this.charts.sales.update();
                 },
 
                 async refreshState() {
                     const res = await fetch('/api/state');
                     this.state = await res.json();
+                    this.updateCharts();
                 },
 
                 async updatePrice() {
@@ -380,6 +476,11 @@ html_content = """
                     this.isPlaying = false;
                 },
 
+                async closeModal() {
+                    this.showResult = false;
+                    this.updateCharts();
+                },
+
                 async resetGame() {
                     if(!confirm("Reset progress?")) return;
                     await fetch('/api/reset', { method: 'POST' });
@@ -412,7 +513,8 @@ async def get_state():
         "upgrade_info": UPGRADES,
         "weather": game.weather,
         "next_weather": game.next_weather,
-        "costs": COSTS
+        "costs": COSTS,
+        "history": game.history
     }
 
 @app.post("/api/price")
@@ -462,6 +564,12 @@ async def start_day():
     missed_count = 0
     revenue = 0.0
     
+    # Costs Calculation per cup
+    cost_basics = COSTS["lemons"] + COSTS["sugar"] + COSTS["cups"]
+    cost_ice_unit = COSTS["ice"]
+    
+    daily_cogs = 0.0
+    
     # Weather modifiers
     w_mod = {
         "sunny": 1.0, 
@@ -486,7 +594,10 @@ async def start_day():
         if game.weather == "hot": max_price += 0.50
         if game.reputation > 50: max_price += 0.50
 
-        # Decision
+        # Decision Logic
+        sale_made = False
+        used_ice = False
+        
         if not has_basics:
             log.append({"tick": i, "type": "miss", "msg": "Sold Out (Basics)"})
             missed_count += 1
@@ -496,25 +607,33 @@ async def start_day():
                 log.append({"tick": i, "type": "miss", "msg": "No Ice!"})
                 missed_count += 1
             else:
-                # They buy anyway but are grumpy (handled in rep later)
+                # They buy anyway but are grumpy
+                sale_made = True
                 log.append({"tick": i, "type": "sale", "msg": "Sold (Warm)", "price": game.price})
-                sold_count += 1
-                revenue += game.price
-                game.inventory["lemons"] -= 1
-                game.inventory["sugar"] -= 1
-                game.inventory["cups"] -= 1
         elif game.price > max_price:
             log.append({"tick": i, "type": "miss", "msg": "Too Expensive"})
             missed_count += 1
         else:
             # Successful Sale
+            sale_made = True
+            used_ice = has_ice
             log.append({"tick": i, "type": "sale", "msg": "Sold!", "price": game.price})
+
+        if sale_made:
             sold_count += 1
             revenue += game.price
+            
+            # Deduct Inventory
             game.inventory["lemons"] -= 1
             game.inventory["sugar"] -= 1
             game.inventory["cups"] -= 1
-            if has_ice: game.inventory["ice"] -= 1
+            
+            # Cost Accounting
+            daily_cogs += cost_basics
+            
+            if used_ice: 
+                game.inventory["ice"] -= 1
+                daily_cogs += cost_ice_unit
 
     # 3. End of Day Calculations
     
@@ -527,16 +646,34 @@ async def start_day():
     stand_cap = UPGRADES["stand"][game.upgrades["stand"]]["rep_cap"]
     game.reputation = max(0, min(stand_cap, game.reputation + rep_change))
     
-    # Ice Melt
+    # Ice Melt (Calculate loss)
     fridge_level = game.upgrades["fridge"]
     save_rate = UPGRADES["fridge"][fridge_level]["ice_save"]
-    melted = int(game.inventory["ice"] * (1 - save_rate))
-    game.inventory["ice"] -= melted
+    ice_melted_count = int(game.inventory["ice"] * (1 - save_rate))
+    game.inventory["ice"] -= ice_melted_count
+    
+    ice_loss_cost = ice_melted_count * COSTS["ice"]
 
     # Financials
-    game.cash += revenue
+    total_expenses = daily_cogs + ice_loss_cost
+    net_profit = revenue - total_expenses
+    
+    game.cash += revenue # Cashflow is just revenue, costs were sunk when buying inventory (technically), but for simple profit tracking we calculate margin here.
+    # Correction: In this game model, we deduct cash when buying. So 'cash' simply increases by revenue.
+    # However, to track 'profit', we need to know the cost of what we used.
+    
     game.stats["total_sales"] += sold_count
     game.stats["total_revenue"] += revenue
+    
+    # Record History
+    game.history.append({
+        "day": game.day,
+        "cash": round(game.cash, 2),
+        "revenue": round(revenue, 2),
+        "net_profit": round(net_profit, 2),
+        "sales": sold_count
+    })
+    
     game.day += 1
     
     # Next Weather
@@ -549,7 +686,10 @@ async def start_day():
             "sold": sold_count,
             "missed": missed_count,
             "revenue": round(revenue, 2),
-            "melted": melted,
+            "cogs": round(daily_cogs, 2),
+            "ice_loss": round(ice_loss_cost, 2),
+            "net_profit": round(net_profit, 2),
+            "melted": ice_melted_count,
             "rep_change": rep_change,
             "weather_tomorrow": game.weather
         },
@@ -563,5 +703,5 @@ def reset_game():
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 8080))
+    port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
