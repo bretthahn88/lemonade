@@ -365,13 +365,35 @@ html_content = """
             </div>
 
             <!-- Charts -->
-            <div class="bg-white/90 backdrop-blur rounded-2xl shadow-xl border border-slate-200 p-6" x-show="state.day > 1" x-transition>
+            <div class="bg-white/90 backdrop-blur rounded-2xl shadow-xl border border-slate-200 p-6" x-show="state.day > 1 && state.history && state.history.length > 0" x-transition>
                 <h2 class="font-bold text-lg mb-4 flex items-center gap-2">
-                    📊 Performance
+                    📊 Performance Analytics
                 </h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="h-48"><canvas id="cashChart"></canvas></div>
-                    <div class="h-48"><canvas id="salesChart"></canvas></div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4">
+                        <div class="h-56 relative">
+                            <canvas id="cashChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4">
+                        <div class="h-56 relative">
+                            <canvas id="salesChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4 grid grid-cols-3 gap-3 text-center text-sm">
+                    <div class="bg-gradient-to-br from-green-100 to-emerald-100 rounded-lg p-3">
+                        <div class="text-xs text-green-700 font-bold mb-1">Avg Profit</div>
+                        <div class="text-lg font-black text-green-600" x-text="'$' + (state.history.reduce((sum, h) => sum + h.net_profit, 0) / state.history.length).toFixed(2)"></div>
+                    </div>
+                    <div class="bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg p-3">
+                        <div class="text-xs text-blue-700 font-bold mb-1">Total Revenue</div>
+                        <div class="text-lg font-black text-blue-600" x-text="'$' + state.stats.total_revenue.toFixed(2)"></div>
+                    </div>
+                    <div class="bg-gradient-to-br from-purple-100 to-pink-100 rounded-lg p-3">
+                        <div class="text-xs text-purple-700 font-bold mb-1">Growth Rate</div>
+                        <div class="text-lg font-black text-purple-600" x-text="state.history.length > 1 ? '+' + (((state.history[state.history.length-1].cash / state.history[0].cash - 1) * 100).toFixed(0)) + '%' : '0%'"></div>
+                    </div>
                 </div>
             </div>
 
@@ -676,46 +698,183 @@ html_content = """
                 initCharts() {
                     const cashEl = document.getElementById('cashChart');
                     const salesEl = document.getElementById('salesChart');
-                    if (!cashEl || !salesEl) return;
+                    if (!cashEl || !salesEl) {
+                        console.log('Chart elements not found');
+                        return;
+                    }
 
-                    if (this.charts.cash) this.charts.cash.destroy();
-                    if (this.charts.sales) this.charts.sales.destroy();
+                    // Destroy existing charts
+                    if (this.charts.cash) {
+                        this.charts.cash.destroy();
+                        this.charts.cash = null;
+                    }
+                    if (this.charts.sales) {
+                        this.charts.sales.destroy();
+                        this.charts.sales = null;
+                    }
 
+                    // Cash Growth Chart (Area Chart)
                     this.charts.cash = new Chart(cashEl.getContext('2d'), {
                         type: 'line',
-                        data: { labels: [], datasets: [{
-                            label: 'Cash', data: [], borderColor: '#10b981',
-                            backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.4
-                        }]},
-                        options: { responsive: true, maintainAspectRatio: false,
-                            plugins: { legend: {display: false}, title: {display: true, text: 'Cash Growth ($)'} }}
+                        data: {
+                            labels: [],
+                            datasets: [{
+                                label: 'Total Cash',
+                                data: [],
+                                borderColor: '#10b981',
+                                backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                                borderWidth: 3,
+                                fill: true,
+                                tension: 0.4,
+                                pointRadius: 4,
+                                pointBackgroundColor: '#10b981',
+                                pointBorderColor: '#fff',
+                                pointBorderWidth: 2,
+                                pointHoverRadius: 6
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: {
+                                intersect: false,
+                                mode: 'index'
+                            },
+                            plugins: {
+                                legend: { display: false },
+                                title: {
+                                    display: true,
+                                    text: '💰 Cash Growth',
+                                    color: '#1f2937',
+                                    font: { size: 14, weight: 'bold' }
+                                },
+                                tooltip: {
+                                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                    padding: 12,
+                                    displayColors: false,
+                                    callbacks: {
+                                        label: function(context) {
+                                            return '$' + context.parsed.y.toFixed(2);
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        callback: function(value) {
+                                            return '$' + value;
+                                        },
+                                        color: '#6b7280'
+                                    },
+                                    grid: {
+                                        color: 'rgba(0, 0, 0, 0.05)'
+                                    }
+                                },
+                                x: {
+                                    ticks: { color: '#6b7280' },
+                                    grid: { display: false }
+                                }
+                            }
+                        }
                     });
 
+                    // Daily Profit Chart (Bar Chart)
                     this.charts.sales = new Chart(salesEl.getContext('2d'), {
                         type: 'bar',
-                        data: { labels: [], datasets: [{label: 'Profit', data: [], backgroundColor: '#3b82f6'}]},
-                        options: { responsive: true, maintainAspectRatio: false,
-                            plugins: { legend: {display: false}, title: {display: true, text: 'Daily Profit ($)'} }}
+                        data: {
+                            labels: [],
+                            datasets: [{
+                                label: 'Daily Profit',
+                                data: [],
+                                backgroundColor: '#3b82f6',
+                                borderRadius: 6,
+                                borderSkipped: false
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: {
+                                intersect: false,
+                                mode: 'index'
+                            },
+                            plugins: {
+                                legend: { display: false },
+                                title: {
+                                    display: true,
+                                    text: '📊 Daily Net Profit',
+                                    color: '#1f2937',
+                                    font: { size: 14, weight: 'bold' }
+                                },
+                                tooltip: {
+                                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                    padding: 12,
+                                    displayColors: false,
+                                    callbacks: {
+                                        label: function(context) {
+                                            const value = context.parsed.y;
+                                            return (value >= 0 ? '+$' : '-$') + Math.abs(value).toFixed(2);
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        callback: function(value) {
+                                            return '$' + value;
+                                        },
+                                        color: '#6b7280'
+                                    },
+                                    grid: {
+                                        color: 'rgba(0, 0, 0, 0.05)'
+                                    }
+                                },
+                                x: {
+                                    ticks: { color: '#6b7280' },
+                                    grid: { display: false }
+                                }
+                            }
+                        }
                     });
 
                     this.updateCharts();
                 },
 
                 updateCharts() {
-                    if (!this.state.history || !this.charts.cash) return;
+                    if (!this.state.history || this.state.history.length === 0) {
+                        console.log('No history data available');
+                        return;
+                    }
 
-                    const labels = this.state.history.map(h => 'D' + h.day);
-                    const cashData = this.state.history.map(h => h.cash);
-                    const profitData = this.state.history.map(h => h.net_profit);
+                    if (!this.charts.cash || !this.charts.sales) {
+                        console.log('Charts not initialized');
+                        return;
+                    }
 
-                    this.charts.cash.data.labels = labels;
-                    this.charts.cash.data.datasets[0].data = cashData;
-                    this.charts.cash.update();
+                    try {
+                        const labels = this.state.history.map(h => 'Day ' + h.day);
+                        const cashData = this.state.history.map(h => h.cash);
+                        const profitData = this.state.history.map(h => h.net_profit);
 
-                    this.charts.sales.data.labels = labels;
-                    this.charts.sales.data.datasets[0].data = profitData;
-                    this.charts.sales.data.datasets[0].backgroundColor = profitData.map(v => v >= 0 ? '#10b981' : '#ef4444');
-                    this.charts.sales.update();
+                        // Update Cash Chart
+                        this.charts.cash.data.labels = labels;
+                        this.charts.cash.data.datasets[0].data = cashData;
+                        this.charts.cash.update('none'); // No animation for smoother updates
+
+                        // Update Profit Chart with dynamic colors
+                        this.charts.sales.data.labels = labels;
+                        this.charts.sales.data.datasets[0].data = profitData;
+                        this.charts.sales.data.datasets[0].backgroundColor = profitData.map(v =>
+                            v >= 0 ? '#10b981' : '#ef4444'
+                        );
+                        this.charts.sales.update('none');
+                    } catch (error) {
+                        console.error('Error updating charts:', error);
+                    }
                 },
 
                 async refreshState() {
