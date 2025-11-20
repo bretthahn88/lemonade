@@ -439,18 +439,34 @@ html_content = """
         .bounce-in { animation: bounce-in 0.5s ease-out; }
         .slide-up { animation: slide-up 0.3s ease-out; }
         .stars-display { background: linear-gradient(45deg, #fbbf24, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+        /* Mobile optimizations */
+        @media (max-width: 639px) {
+            button, .button { min-height: 44px; }
+        }
     </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    screens: {
+                        'xs': '480px',
+                    },
+                }
+            }
+        }
+    </script>
 </head>
 <body class="bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 text-slate-800 font-sans min-h-screen" x-data="gameApp()" x-init="init()">
 
     <!-- Achievement Toast -->
     <div x-show="achievementToast" x-transition
-         class="fixed top-20 right-4 bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-6 py-4 rounded-xl shadow-2xl z-[200] max-w-sm bounce-in">
-        <div class="flex items-center gap-3">
-            <span class="text-3xl">🏆</span>
+         class="fixed top-20 right-2 sm:right-4 bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-4 sm:px-6 py-3 sm:py-4 rounded-xl shadow-2xl z-[200] max-w-[calc(100vw-1rem)] sm:max-w-sm bounce-in">
+        <div class="flex items-center gap-2 sm:gap-3">
+            <span class="text-2xl sm:text-3xl">🏆</span>
             <div>
-                <div class="font-bold text-lg" x-text="achievementData?.name"></div>
-                <div class="text-sm opacity-90" x-text="achievementData?.desc"></div>
+                <div class="font-bold text-base sm:text-lg" x-text="achievementData?.name"></div>
+                <div class="text-xs sm:text-sm opacity-90" x-text="achievementData?.desc"></div>
                 <div class="text-xs mt-1 font-bold">+$<span x-text="achievementData?.reward"></span> Bonus!</div>
             </div>
         </div>
@@ -458,20 +474,20 @@ html_content = """
 
     <!-- Event Alert -->
     <div x-show="eventAlert" x-transition
-         class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-purple-600 text-white px-8 py-4 rounded-2xl shadow-2xl z-[200] max-w-lg text-center bounce-in">
-        <div class="text-4xl mb-2" x-text="eventData?.emoji"></div>
-        <div class="font-bold text-xl" x-text="eventData?.name"></div>
-        <div class="text-sm opacity-90 mt-1" x-text="eventData?.effect"></div>
+         class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-purple-600 text-white px-4 sm:px-8 py-3 sm:py-4 rounded-2xl shadow-2xl z-[200] max-w-[calc(100vw-2rem)] sm:max-w-lg text-center bounce-in">
+        <div class="text-3xl sm:text-4xl mb-2" x-text="eventData?.emoji"></div>
+        <div class="font-bold text-lg sm:text-xl" x-text="eventData?.name"></div>
+        <div class="text-xs sm:text-sm opacity-90 mt-1" x-text="eventData?.effect"></div>
     </div>
 
     <!-- TOP BAR -->
     <div class="bg-white/90 backdrop-blur shadow-lg sticky top-0 z-50 border-b-4 border-yellow-400">
-        <div class="max-w-7xl mx-auto px-4 py-3">
-            <div class="flex justify-between items-center">
+        <div class="max-w-7xl mx-auto px-3 sm:px-4 py-3">
+            <div class="flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-0">
                 <div class="flex items-center gap-3">
-                    <span class="text-4xl">🍋</span>
+                    <span class="text-3xl sm:text-4xl">🍋</span>
                     <div>
-                        <h1 class="font-black text-2xl bg-gradient-to-r from-yellow-500 to-orange-500 bg-clip-text text-transparent">Lemonade Tycoon</h1>
+                        <h1 class="font-black text-xl sm:text-2xl bg-gradient-to-r from-yellow-500 to-orange-500 bg-clip-text text-transparent">Lemonade Tycoon</h1>
                         <div class="text-xs text-slate-500 flex items-center gap-2">
                             <span>Day <span class="font-bold" x-text="state.day"></span></span>
                             <span class="text-yellow-500">•</span>
@@ -479,21 +495,21 @@ html_content = """
                         </div>
                     </div>
                 </div>
-                <div class="flex gap-6 items-center">
+                <div class="flex gap-3 sm:gap-6 items-center w-full sm:w-auto justify-around sm:justify-end">
                     <div class="text-center">
-                        <div class="text-[10px] uppercase font-bold text-slate-400">Streak</div>
-                        <div class="font-bold text-orange-600 flex items-center gap-1">
+                        <div class="text-[10px] sm:text-xs uppercase font-bold text-slate-400">Streak</div>
+                        <div class="font-bold text-orange-600 flex items-center gap-1 text-sm sm:text-base">
                             <span x-text="state.streak"></span>
-                            <span class="text-lg">🔥</span>
+                            <span class="text-base sm:text-lg">🔥</span>
                         </div>
                     </div>
                     <div class="text-center">
-                        <div class="text-[10px] uppercase font-bold text-purple-700">Reputation</div>
-                        <div class="font-bold text-purple-600" x-text="state.reputation + '%'"></div>
+                        <div class="text-[10px] sm:text-xs uppercase font-bold text-purple-700">Reputation</div>
+                        <div class="font-bold text-purple-600 text-sm sm:text-base" x-text="state.reputation + '%'"></div>
                     </div>
-                    <div class="text-center bg-gradient-to-br from-green-400 to-emerald-500 text-white px-4 py-2 rounded-xl shadow-lg">
-                        <div class="text-[10px] uppercase font-bold">Cash</div>
-                        <div class="font-black text-xl" x-text="'$' + state.cash.toFixed(2)"></div>
+                    <div class="text-center bg-gradient-to-br from-green-400 to-emerald-500 text-white px-3 sm:px-4 py-2 rounded-xl shadow-lg">
+                        <div class="text-[10px] sm:text-xs uppercase font-bold">Cash</div>
+                        <div class="font-black text-lg sm:text-xl" x-text="'$' + state.cash.toFixed(2)"></div>
                     </div>
                 </div>
             </div>
@@ -501,21 +517,21 @@ html_content = """
     </div>
 
     <!-- MAIN CONTENT -->
-    <div class="max-w-7xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-3 gap-6" x-cloak>
+    <div class="max-w-7xl mx-auto p-3 sm:p-4 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6" x-cloak>
 
         <!-- LEFT COLUMN -->
-        <div class="lg:col-span-2 space-y-6">
+        <div class="lg:col-span-2 space-y-4 sm:space-y-6">
 
             <!-- Achievements -->
-            <div class="bg-white/90 backdrop-blur rounded-2xl shadow-xl border-2 border-yellow-300 p-6" x-show="state.achievements && state.achievements.length > 0">
-                <h2 class="font-bold text-lg mb-4 flex items-center gap-2">
-                    <span class="text-2xl">🏆</span>
+            <div class="bg-white/90 backdrop-blur rounded-2xl shadow-xl border-2 border-yellow-300 p-4 sm:p-6" x-show="state.achievements && state.achievements.length > 0">
+                <h2 class="font-bold text-base sm:text-lg mb-3 sm:mb-4 flex items-center gap-2">
+                    <span class="text-xl sm:text-2xl">🏆</span>
                     <span>Achievements (<span x-text="state.achievements.length"></span>/8)</span>
                 </h2>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
                     <template x-for="achId in state.achievements" :key="achId">
-                        <div class="bg-gradient-to-br from-yellow-100 to-orange-100 p-3 rounded-xl border-2 border-yellow-300 text-center">
-                            <div class="text-2xl mb-1">🏆</div>
+                        <div class="bg-gradient-to-br from-yellow-100 to-orange-100 p-2 sm:p-3 rounded-xl border-2 border-yellow-300 text-center">
+                            <div class="text-xl sm:text-2xl mb-1">🏆</div>
                             <div class="text-xs font-bold" x-text="achievementNames[achId]"></div>
                         </div>
                     </template>
@@ -523,11 +539,11 @@ html_content = """
             </div>
 
             <!-- Charts -->
-            <div class="bg-white/90 backdrop-blur rounded-2xl shadow-xl border border-slate-200 p-6" x-show="state.day > 1 && state.history && state.history.length > 0" x-transition>
-                <h2 class="font-bold text-lg mb-4 flex items-center gap-2">
+            <div class="bg-white/90 backdrop-blur rounded-2xl shadow-xl border border-slate-200 p-4 sm:p-6" x-show="state.day > 1 && state.history && state.history.length > 0" x-transition>
+                <h2 class="font-bold text-base sm:text-lg mb-3 sm:mb-4 flex items-center gap-2">
                     📊 Performance Analytics
                 </h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                     <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4">
                         <div class="h-56 relative">
                             <canvas id="cashChart"></canvas>
@@ -556,8 +572,8 @@ html_content = """
             </div>
 
             <!-- Weather & Event -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-2xl p-6 shadow-xl relative overflow-hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                <div class="bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-2xl p-4 sm:p-6 shadow-xl relative overflow-hidden">
                     <div class="relative z-10">
                         <div class="text-xs font-bold opacity-75 uppercase">Today</div>
                         <div class="text-3xl font-black capitalize flex items-center gap-2 my-2">
@@ -572,17 +588,17 @@ html_content = """
                 </div>
 
                 <div x-show="state.active_event"
-                     class="bg-gradient-to-br from-purple-500 to-pink-600 text-white rounded-2xl p-6 shadow-xl">
+                     class="bg-gradient-to-br from-purple-500 to-pink-600 text-white rounded-2xl p-4 sm:p-6 shadow-xl">
                     <div class="text-xs font-bold opacity-75 uppercase">Special Event!</div>
-                    <div class="text-4xl my-2" x-text="state.active_event?.emoji"></div>
-                    <div class="font-bold text-lg" x-text="state.active_event?.name"></div>
+                    <div class="text-3xl sm:text-4xl my-2" x-text="state.active_event?.emoji"></div>
+                    <div class="font-bold text-base sm:text-lg" x-text="state.active_event?.name"></div>
                 </div>
             </div>
 
             <!-- Recipe Lab -->
-            <div class="bg-white/90 backdrop-blur rounded-2xl shadow-xl border border-slate-200 p-6">
-                <h2 class="font-bold text-lg mb-4 flex items-center gap-2">
-                    <span class="text-2xl">🔬</span>
+            <div class="bg-white/90 backdrop-blur rounded-2xl shadow-xl border border-slate-200 p-4 sm:p-6">
+                <h2 class="font-bold text-base sm:text-lg mb-3 sm:mb-4 flex items-center gap-2">
+                    <span class="text-xl sm:text-2xl">🔬</span>
                     Recipe Laboratory
                 </h2>
                 <div class="grid grid-cols-2 gap-4">
@@ -609,11 +625,11 @@ html_content = """
             </div>
 
             <!-- Supplies -->
-            <div class="bg-white/90 backdrop-blur rounded-2xl shadow-xl border border-slate-200 p-6">
-                <h2 class="font-bold text-lg mb-4 flex items-center gap-2">
+            <div class="bg-white/90 backdrop-blur rounded-2xl shadow-xl border border-slate-200 p-4 sm:p-6">
+                <h2 class="font-bold text-base sm:text-lg mb-3 sm:mb-4 flex items-center gap-2">
                     🛒 Supplies
                 </h2>
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div class="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-4 gap-3">
                     <template x-for="(cost, item) in state.costs" :key="item">
                         <div class="border-2 border-slate-100 rounded-xl p-4 hover:border-yellow-400 hover:shadow-lg transition-all group bg-gradient-to-br from-white to-slate-50">
                             <div class="flex justify-between items-start mb-2">
@@ -626,12 +642,12 @@ html_content = """
                             <div class="flex flex-col gap-2">
                                 <button @click="buy(item, 10)"
                                     :disabled="state.cash < cost * 10"
-                                    class="w-full py-2 bg-gradient-to-r from-green-400 to-emerald-500 text-white text-xs font-bold rounded-lg hover:from-green-500 hover:to-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transform active:scale-95 transition-all shadow-md">
+                                    class="w-full py-2.5 sm:py-2 min-h-[44px] bg-gradient-to-r from-green-400 to-emerald-500 text-white text-xs sm:text-sm font-bold rounded-lg hover:from-green-500 hover:to-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transform active:scale-95 transition-all shadow-md">
                                     +10 <span x-text="'($' + (cost*10).toFixed(2) + ')'"></span>
                                 </button>
                                 <button @click="buy(item, 50)"
                                     :disabled="state.cash < cost * 50"
-                                    class="w-full py-1.5 bg-slate-600 text-white text-xs font-bold rounded-lg hover:bg-slate-700 disabled:opacity-40 transition-all">
+                                    class="w-full py-2.5 sm:py-1.5 min-h-[44px] bg-slate-600 text-white text-xs sm:text-sm font-bold rounded-lg hover:bg-slate-700 disabled:opacity-40 transition-all">
                                     +50 (Bulk)
                                 </button>
                             </div>
@@ -641,8 +657,8 @@ html_content = """
             </div>
 
             <!-- Upgrades -->
-            <div class="bg-white/90 backdrop-blur rounded-2xl shadow-xl border border-slate-200 p-6">
-                <h2 class="font-bold text-lg mb-4 flex items-center gap-2">
+            <div class="bg-white/90 backdrop-blur rounded-2xl shadow-xl border border-slate-200 p-4 sm:p-6">
+                <h2 class="font-bold text-base sm:text-lg mb-3 sm:mb-4 flex items-center gap-2">
                     ⚡ Upgrades
                 </h2>
                 <div class="space-y-3">
@@ -660,11 +676,11 @@ html_content = """
                                 <button x-show="next"
                                         @click="upgrade(type)"
                                         :disabled="state.cash < next.cost"
-                                        class="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-bold rounded-lg hover:from-indigo-600 hover:to-purple-700 disabled:opacity-40 transition-all transform active:scale-95 shadow-md">
+                                        class="px-3 sm:px-4 py-2.5 min-h-[44px] bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-xs sm:text-sm font-bold rounded-lg hover:from-indigo-600 hover:to-purple-700 disabled:opacity-40 transition-all transform active:scale-95 shadow-md">
                                     <div x-text="next.name"></div>
                                     <div class="text-yellow-300 text-xs" x-text="'$' + next.cost"></div>
                                 </button>
-                                <span x-show="!next" class="px-4 py-2 bg-gradient-to-r from-green-400 to-emerald-500 text-white text-sm font-bold rounded-lg">
+                                <span x-show="!next" class="px-3 sm:px-4 py-2.5 min-h-[44px] bg-gradient-to-r from-green-400 to-emerald-500 text-white text-xs sm:text-sm font-bold rounded-lg inline-flex items-center">
                                     ✓ MAXED
                                 </span>
                             </div>
@@ -675,11 +691,11 @@ html_content = """
         </div>
 
         <!-- RIGHT COLUMN -->
-        <div class="space-y-6">
+        <div class="space-y-4 sm:space-y-6">
 
             <!-- Stats Dashboard -->
-            <div class="bg-gradient-to-br from-purple-500 to-indigo-600 text-white rounded-2xl shadow-2xl p-6">
-                <h2 class="font-bold text-xl mb-4">📈 Career Stats</h2>
+            <div class="bg-gradient-to-br from-purple-500 to-indigo-600 text-white rounded-2xl shadow-2xl p-4 sm:p-6">
+                <h2 class="font-bold text-lg sm:text-xl mb-3 sm:mb-4">📈 Career Stats</h2>
                 <div class="space-y-3">
                     <div class="flex justify-between items-center">
                         <span class="text-sm opacity-90">Total Sales</span>
@@ -701,9 +717,9 @@ html_content = """
             </div>
 
             <!-- Strategy Card -->
-            <div class="bg-white/90 backdrop-blur rounded-2xl shadow-2xl border-4 border-yellow-400 p-6 sticky top-24">
-                <h2 class="font-bold text-xl mb-4 flex items-center gap-2">
-                    <span class="text-2xl">🎯</span>
+            <div class="bg-white/90 backdrop-blur rounded-2xl shadow-2xl border-4 border-yellow-400 p-4 sm:p-6 lg:sticky lg:top-24">
+                <h2 class="font-bold text-lg sm:text-xl mb-3 sm:mb-4 flex items-center gap-2">
+                    <span class="text-xl sm:text-2xl">🎯</span>
                     Daily Strategy
                 </h2>
 
@@ -741,7 +757,7 @@ html_content = """
 
                 <button @click="startDay()"
                         :disabled="isPlaying || state.inventory.lemons < 1 || state.inventory.sugar < 1 || state.inventory.cups < 1"
-                        class="w-full py-4 bg-gradient-to-r from-green-400 to-emerald-500 hover:from-green-500 hover:to-emerald-600 text-white font-black text-xl rounded-2xl shadow-2xl shadow-green-200 transition-all transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
+                        class="w-full py-4 min-h-[56px] bg-gradient-to-r from-green-400 to-emerald-500 hover:from-green-500 hover:to-emerald-600 text-white font-black text-lg sm:text-xl rounded-2xl shadow-2xl shadow-green-200 transition-all transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
                     <span x-show="!isPlaying" class="flex items-center justify-center gap-2">
                         <span>🚀</span>
                         <span>START DAY</span>
@@ -757,16 +773,16 @@ html_content = """
     </div>
 
     <!-- DAY RESULT MODAL -->
-    <div x-show="showResult" class="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4" x-cloak x-transition>
-        <div class="bg-white rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden transform" @click.away="closeModal()">
-            <div class="bg-gradient-to-r from-yellow-400 to-orange-500 text-white p-6 text-center">
-                <h2 class="text-4xl font-black mb-2">Day Complete!</h2>
-                <div class="text-lg opacity-90">Let's see how you did...</div>
+    <div x-show="showResult" class="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-3 sm:p-4" x-cloak x-transition>
+        <div class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden transform" @click.away="closeModal()">
+            <div class="bg-gradient-to-r from-yellow-400 to-orange-500 text-white p-4 sm:p-6 text-center">
+                <h2 class="text-2xl sm:text-4xl font-black mb-2">Day Complete!</h2>
+                <div class="text-sm sm:text-lg opacity-90">Let's see how you did...</div>
             </div>
 
-            <div class="p-6">
+            <div class="p-4 sm:p-6">
                 <!-- Simulation Log -->
-                <div class="bg-slate-900 rounded-xl p-4 h-64 overflow-y-auto mb-6 font-mono text-xs space-y-1 shadow-inner" id="simLog">
+                <div class="bg-slate-900 rounded-xl p-3 sm:p-4 h-48 sm:h-64 overflow-y-auto mb-4 sm:mb-6 font-mono text-xs space-y-1 shadow-inner" id="simLog">
                     <template x-for="(entry, idx) in simLog" :key="idx">
                         <div class="slide-up" :style="'animation-delay: ' + (idx * 0.05) + 's'">
                             <div :class="entry.type === 'sale' ? 'text-green-400' : entry.type === 'special' ? 'text-yellow-400' : 'text-red-400'"
@@ -780,7 +796,7 @@ html_content = """
 
                 <!-- Summary -->
                 <div x-show="summary" class="space-y-4">
-                    <div class="grid grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                         <div class="bg-gradient-to-br from-green-400 to-emerald-500 text-white p-4 rounded-xl text-center shadow-lg">
                             <div class="text-xs font-bold opacity-75 uppercase">Revenue</div>
                             <div class="text-2xl font-black" x-text="'$' + summary?.revenue.toFixed(2)"></div>
@@ -813,7 +829,7 @@ html_content = """
                     </div>
 
                     <button @click="closeModal()"
-                            class="w-full py-4 bg-gradient-to-r from-slate-700 to-slate-900 text-white font-bold text-lg rounded-xl hover:from-slate-800 hover:to-black transition-all transform active:scale-95 shadow-xl">
+                            class="w-full py-4 sm:py-4 min-h-[56px] bg-gradient-to-r from-slate-700 to-slate-900 text-white font-bold text-base sm:text-lg rounded-xl hover:from-slate-800 hover:to-black transition-all transform active:scale-95 shadow-xl">
                         Continue to Day <span x-text="state.day"></span> →
                     </button>
                 </div>
