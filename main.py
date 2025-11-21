@@ -603,7 +603,7 @@ html_content = """
                 </h2>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="text-sm font-bold text-slate-600 mb-2 block">🍋 Lemon Strength</label>
+                        <label class="text-sm font-bold text-slate-600 mb-2 block">🍋 Lemon Juice</label>
                         <input type="range" min="0.5" max="1.5" step="0.1"
                                x-model.number="state.recipe.lemon_ratio"
                                @change="updateRecipe()"
